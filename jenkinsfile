@@ -2,51 +2,32 @@ pipeline {
   agent any
 
   environment {
-    APP_NAME = "NeonApp"
-    MODE = "DEV"
+    IMAGE_NAME = "your_dockerhub_username/my-next-app"
   }
 
   stages {
 
-    // STAGE 1: Create file + insert text
-    stage("Create File & Write Text") {
+    stage("Build Docker Image") {
       steps {
-        sh '''
-          echo "File created by Jenkins" > glow.txt
-          echo "App Name: $APP_NAME" >> glow.txt
-          cat glow.txt
-        '''
+        sh "docker build -t $IMAGE_NAME:latest ."
       }
     }
 
-    // STAGE 2: Create script + run it + condition inside steps
-    stage("Create Script & Run with Condition") {
+    stage("Login to Docker Hub") {
       steps {
-        sh '''
-          echo '#!/bin/bash' > run.sh
-          echo 'echo "Script is running..."' >> run.sh
-          echo 'echo "Current Mode: $MODE"' >> run.sh
-          chmod +x run.sh
-        '''
-
-        script {
-          if (env.MODE == "DEV") {
-            sh "./run.sh"
-          } else {
-            echo "Script blocked due to MODE"
-          }
+        withCredentials([usernamePassword(
+          credentialsId: "dockerhub-creds",
+          usernameVariable: "DOCKER_USER",
+          passwordVariable: "DOCKER_PASS"
+        )]) {
+          sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
         }
       }
     }
 
-    //STAGE 3: Use environment value + create something else
-    stage("Env Value + Final Output") {
+    stage("Push Image to Docker Hub") {
       steps {
-        sh '''
-          echo "Final Stage for $APP_NAME" > final.txt
-          echo "Pipeline executed in $MODE mode" >> final.txt
-          cat final.txt
-        '''
+        sh "docker push $IMAGE_NAME:latest"
       }
     }
 
